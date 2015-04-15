@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-# $Id: ddmin.py,v 2.2 2005/05/12 22:01:18 zeller Exp $
 
+from tempfile import NamedTemporaryFile
+from xml.parsers.xmlproc import xmlproc
 from split import split
 from listsets import listminus
 import re
@@ -12,7 +13,7 @@ UNRESOLVED = "UNRESOLVED"
 def ddmin(circumstances, test):
     """Return a sublist of CIRCUMSTANCES that is a relevant configuration
        with respect to TEST."""
-    
+
     assert test([]) == PASS
     assert test(circumstances) == FAIL
 
@@ -38,50 +39,39 @@ def ddmin(circumstances, test):
 
     return circumstances
 
+def test(data):
 
+    if not data:
+        return PASS
+
+    p = xmlproc.XMLProcessor()
+
+    with NamedTemporaryFile(dir='/tmp', delete=False) as f:
+        for i in data:
+            f.write(i[1])
+        filename = f.name
+
+    try:
+        p.parse_resource(filename)
+        return PASS
+    except UnboundLocalError as e:
+        print("=====")
+        print(''.join(i[1] for i in data))
+        print("=====")
+        return FAIL
+    except:
+        return UNRESOLVED
 
 if __name__ == "__main__":
-    tests = {}
-    circumstances = []
 
     def string_to_list(s):
         c = []
         for i in range(len(s)):
             c.append((i, s[i]))
         return c
-    
-    def mytest(c):
-        global tests
-        global circumstances
 
-        s = ""
-        for (index, char) in c:
-            s += char
+    with open('demo/urls.xml') as f:
+        data = f.read()
 
-        if s in tests.keys():
-            return tests[s]
-
-        map = {}
-        for (index, char) in c:
-            map[index] = char
-
-        x = ""
-        for i in range(len(circumstances)):
-            if map.has_key(i):
-                x += map[i]
-            else:
-                x += "."
-
-        print "%02i" % (len(tests.keys()) + 1), "Testing", `x`,
-        
-        if s != "" and re.match("<SELECT.*>", s):
-            print FAIL
-            tests[s] = FAIL
-            return FAIL
-        print PASS
-        tests[s] = PASS
-        return PASS
-
-    circumstances = string_to_list('<SELECT NAME="priority" MULTIPLE SIZE=7>')
-    mytest(circumstances)
-    print ddmin(circumstances, mytest)
+    circumstances = string_to_list(data)
+    ddmin(circumstances, test)
